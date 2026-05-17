@@ -83,46 +83,19 @@ class JsonSerDes(metaclass=_JsonSerDesMeta):
         return typ
 
     @classmethod
-    def register_serializer(cls, typ=None):
+    def register_serializer(cls, typ: Type) -> Callable:
         """Decorator to register a serialization function for a type.
 
         Usage:
-            # With type argument:
             @JsonSerDes.register_serializer(Path)
-            def serialize_path(p: Path) -> str:
-                return str(p)
-
-            # Without arguments (auto-detects return type):
-            @JsonSerDes.register_serializer
             def serialize_path(p: Path) -> str:
                 return str(p)
         """
 
         def decorator(func: Callable) -> Callable:
-            target = typ
-
-            # Auto-detect type from return annotation if not provided
-            if target is None:
-                hints = getattr(func, "__annotations__", {})
-                if "return" in hints:
-                    target = hints["return"]
-                else:
-                    raise ValueError(
-                        "Type must be provided as argument or return annotation"
-                    )
-
-            cls._json_ser[target] = func
+            cls._json_ser[typ] = func
             return func
 
-        # If called without arguments (@register_serializer), typ is the function
-        if callable(typ) and not isinstance(typ, type):
-            return decorator(typ)
-
-        # If typ is a type, return decorator for immediate use
-        if isinstance(typ, type):
-            return decorator
-
-        # Otherwise return decorator for later use
         return decorator
 
     def to_json(self, *args, **kwargs) -> str:
