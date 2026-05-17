@@ -2,61 +2,21 @@ import dataclasses
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Type, Union
+from typing import Any, Callable, Type, Union
+
+# Module-level serializer/deserializer registries
+_json_ser: dict[Type, Callable] = {
+    datetime: lambda dt: dt.isoformat(),
+    Path: lambda p: str(p),
+}
+_json_des: dict[Type, Callable] = {
+    datetime: lambda dt: datetime.fromisoformat(dt),
+    Path: lambda p: Path(p),
+}
 
 
-class _JsonSerDesMeta(type):
-    """Metaclass for JsonSerDes that merges serializer registrations from parent classes."""
-
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-
-        # Ensure _json_ser and _json_des exist on the class
-        if not hasattr(cls, "_json_ser"):
-            cls._json_ser = {}
-        if not hasattr(cls, "_json_des"):
-            cls._json_des = {}
-
-        # Merge serializers from parent classes (child takes precedence)
-        if hasattr(cls, "_json_ser"):
-            merged_ser = {}
-            for base in cls.__mro__:
-                if base in (object, _JsonSerDesMeta):
-                    continue
-                base_ser = vars(base).get("_json_ser")
-                if base_ser is not None:
-                    # Merge in reverse MRO so child wins
-                    for k, v in base_ser.items():
-                        if k not in merged_ser:
-                            merged_ser[k] = v
-            cls._json_ser = merged_ser
-
-        if hasattr(cls, "_json_des"):
-            merged_des = {}
-            for base in cls.__mro__:
-                if base in (object, _JsonSerDesMeta):
-                    continue
-                base_des = vars(base).get("_json_des")
-                if base_des is not None:
-                    for k, v in base_des.items():
-                        if k not in merged_des:
-                            merged_des[k] = v
-            cls._json_des = merged_des
-
-        return cls
-
-
-class JsonSerDes(metaclass=_JsonSerDesMeta):
-    """Mixin class for JSON serialization/deserialization with inherited type registrations."""
-
-    _json_ser: ClassVar[dict[Type, Callable]] = {
-        datetime: lambda dt: dt.isoformat(),
-        Path: lambda p: str(p),
-    }
-    _json_des: ClassVar[dict[Type, Callable]] = {
-        datetime: lambda dt: datetime.fromisoformat(dt),
-        Path: lambda p: Path(p),
-    }
+class JsonSerDes:
+    """Mixin class for JSON serialization/deserialization."""
 
     def __post_init__(self):
         for field in dataclasses.fields(self):
@@ -64,12 +24,12 @@ class JsonSerDes(metaclass=_JsonSerDesMeta):
             if value is None:
                 continue
 
-            # Get the first non-None type from Optional/Union
+            # Get the first type from Optional/Union, skipping None
             target_type = self._get_primary_type(field.type)
 
             # Apply deserializer if we have one and value isn't already that type
-            if target_type in self._json_des and not isinstance(value, target_type):
-                coerced = self._json_des[target_type](value)
+            if target_type in _json_des and not isinstance(value, target_type):
+                coerced = _json_des[target_type](value)
                 object.__setattr__(self, field.name, coerced)
 
     @staticmethod
@@ -93,15 +53,15 @@ class JsonSerDes(metaclass=_JsonSerDesMeta):
         """
 
         def decorator(func: Callable) -> Callable:
-            cls._json_ser[typ] = func
+            _json_ser[typ] = func
             return func
 
         return decorator
 
     def to_json(self, *args, **kwargs) -> str:
         def serialize(data: Any) -> Any:
-            for T, func in reversed(self._json_ser.items()):
-                if isinstance(data, T):
+            for typ, func in reversed(_json_ser.items()):
+                if isinstance(data, typ):
                     return func(data)
             raise TypeError("Object of type %s is not JSON serializable" % type(data))
 
