@@ -5,7 +5,7 @@ Paper-thin JSON serialization/deserialization for Python dataclasses.
 ## Usage
 
 ```python
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -34,7 +34,7 @@ class User:
 
 obj = User(
     name="Alice",
-    dob=datetime.now(UTC),
+    dob=datetime.now(timezone.utc),
     email="alice@example.com",
     homedir=Path.home(),
     mail=Address("123 Main St", "", "Springfield", "IL", "62701"),

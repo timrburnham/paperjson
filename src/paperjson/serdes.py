@@ -1,9 +1,8 @@
 """paperjson.serdes — decorator that adds ``to_json()`` / ``from_json()`` to a dataclass."""
 
-from __future__ import annotations
-
 import dataclasses
 import json
+from types import UnionType
 from typing import Any, Callable, Type, Union
 
 from paperjson.deserialize import json_deserialize
@@ -17,7 +16,7 @@ from paperjson.serialize import json_serialize
 def _get_primary_type(typ: Type) -> Type:
     """Extract the first non-None type from ``Optional[T]`` / ``Union[T, ...]``."""
     origin = getattr(typ, "__origin__", None)
-    if origin is Union:
+    if origin is Union or origin is UnionType:
         for arg in getattr(typ, "__args__", ()):
             if arg is not type(None):
                 return arg
