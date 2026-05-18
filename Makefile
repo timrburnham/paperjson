@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # paperjson — Build for every installed Python version
 #
-# Phony targets (all list clean help) do what they say.
+# Phony targets (all list test clean help) do what they say.
 # Any *other* target name is treated as a Python executable and passed
 # directly to ``uv build --python <that>``.
 #

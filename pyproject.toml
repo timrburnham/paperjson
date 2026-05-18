@@ -17,11 +17,6 @@ Homepage = "https://github.com/timrburnham/paperjson"
 requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
-[tool.uv.workspace]
-members = [
-    ".",
-]
-
 [tool.ty.src]
 exclude = ["tests/**"]
 
@@ -43,4 +38,6 @@ paperjson = { workspace = true }
 dev = [
     "paperjson",
     "pytest>=8",
+    "ruff",
+    "ty",
 ]
