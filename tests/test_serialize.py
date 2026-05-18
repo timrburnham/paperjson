@@ -84,8 +84,43 @@ class TestRegisterSerializer:
         result = json_serialize(c)
         assert result == "#ff8000"
 
-    def test_serialize_unknown_type_raises(self):
-        """Unregistered types should raise TypeError."""
+    def test_serialize_unknown_type_falls_back_to_str(self):
+        """Unregistered types with a round-trippable ``__str__`` auto-register."""
+
+        class Stringy:
+            def __init__(self, val: str):
+                self.val = val
+
+            def __str__(self):
+                return self.val
+
+            def __eq__(self, other):
+                return isinstance(other, Stringy) and self.val == other.val
+
+        obj = Stringy("hello")
+        result = json_serialize(obj)
+        assert result == "hello"
+
+        # The handler should have been auto-registered
+        assert Stringy in json_serialize.registry
+
+        # Subsequent calls skip the round-trip check entirely
+        cached = json_serialize(Stringy("world"))
+        assert cached == "world"
+
+    def test_serialize_no_roundtrip_raises_type_error(self):
+        """Types whose str() doesn't roundtrip raise TypeError."""
+
+        class NoRoundtrip:
+            def __str__(self):
+                return "data"
+            # No __init__ override → constructor rejects "data"
+
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            json_serialize(NoRoundtrip())
+
+    def test_serialize_default_repr_raises_type_error(self):
+        """Types with only the default ``object.__repr__`` raise TypeError."""
 
         class Unregistered:
             pass
@@ -103,8 +138,8 @@ class TestJsonSerializeEdgeCases:
     """Corner-case behaviour."""
 
     def test_none_value(self):
-        # json.dumps passes None through directly, but json_serialize
-        # receives it and raises because NoneType is not registered.
+        # json.dumps handles None natively — if called directly, json_serialize
+        # raises because NoneType can't be round-tripped via constructor.
         with pytest.raises(TypeError):
             json_serialize(None)
 

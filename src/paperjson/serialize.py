@@ -13,7 +13,23 @@ def json_serialize(arg):
     ``@serdes``-decorated classes call this internally during ``to_json()``.
     Register handlers with ``@paperjson.register_serializer(Type)``.
     """
-    raise TypeError(f"Object of type {type(arg)} is not JSON serializable")
+    s = str(arg)
+
+    # Test round-trip: can the value survive str() → constructor?
+    # If yes, auto-register the str() handler so subsequent calls skip
+    # this check entirely.
+    try:
+        reconstructed = type(arg)(s)
+        if reconstructed == arg:
+            json_serialize.register(type(arg))(lambda x: str(x))
+            return s
+    except Exception:
+        pass
+
+    raise TypeError(
+        f"Object of type {type(arg)} is not JSON serializable. "
+        f"Register a serializer with @register_serializer({type(arg).__name__})"
+    )
 
 
 @json_serialize.register(datetime)

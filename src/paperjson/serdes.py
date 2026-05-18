@@ -43,6 +43,15 @@ def _coerce_field(value: Any, target_type: Any) -> Any:
         coerced = _coerce_dict(typ, value)
         return typ(**coerced)
 
+    # 3. Fallback: try the type constructor directly (e.g. int("5"), Path("/tmp"))
+    try:
+        if not isinstance(value, typ):
+            return typ(value)
+    except (TypeError, ValueError):
+        # typ is a parameterized generic (list[str], dict[str, int], …)
+        # or the constructor rejected the value — keep the original
+        pass
+
     return value
 
 
