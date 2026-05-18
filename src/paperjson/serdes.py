@@ -6,7 +6,8 @@ import dataclasses
 import json
 from typing import Any, Callable, Type, Union
 
-from paperjson.serialize import json_deserialize, json_serialize
+from paperjson.deserialize import json_deserialize
+from paperjson.serialize import json_serialize
 
 # ---------------------------------------------------------------------------
 # Internal helpers

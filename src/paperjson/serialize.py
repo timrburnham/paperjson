@@ -1,13 +1,9 @@
+"""Serialization (singledispatch) and built-in serializers for paperjson."""
+
 from datetime import datetime
 from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Type
-
-from paperjson._registry import _DeserializerRegistry
-
-# ---------------------------------------------------------------------------
-# Serializer (singledispatch-based)
-# ---------------------------------------------------------------------------
 
 
 @singledispatch
@@ -43,35 +39,3 @@ def register_serializer(typ: Type) -> Callable:
             return str(p)
     """
     return json_serialize.register(typ)
-
-
-# ---------------------------------------------------------------------------
-# Deserializer (registry-based)
-# ---------------------------------------------------------------------------
-
-
-json_deserialize = _DeserializerRegistry()
-
-
-@json_deserialize.register(datetime)
-def _(value: str) -> datetime:
-    return datetime.fromisoformat(value)
-
-
-@json_deserialize.register(Path)
-def _(value: str) -> Path:
-    return Path(value)
-
-
-def register_deserializer(typ: Type) -> Callable:
-    """Decorator to register a deserialization function for *typ*.
-
-    Usage::
-
-        import paperjson
-
-        @paperjson.register_deserializer(Path)
-        def _(v: str) -> Path:
-            return Path(v)
-    """
-    return json_deserialize.register(typ)
