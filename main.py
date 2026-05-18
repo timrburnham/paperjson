@@ -76,10 +76,15 @@ class JsonSerDes:
             # Get the first type from Optional/Union, skipping None
             target_type = self._get_primary_type(field.type)
 
-            # Apply deserializer if we have one and value isn't already that type
+            # 1. Use registered deserializer if one exists
             deserializer = json_deserialize.get(target_type)
             if deserializer is not None and not isinstance(value, target_type):
                 coerced = deserializer(value)
+                object.__setattr__(self, field.name, coerced)
+
+            # 2. Fallback: hydrate nested dataclasses from dict
+            elif dataclasses.is_dataclass(target_type) and isinstance(value, dict):
+                coerced = target_type(**value)
                 object.__setattr__(self, field.name, coerced)
 
     @staticmethod
