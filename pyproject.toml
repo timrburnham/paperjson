@@ -15,10 +15,25 @@ members = [
     ".",
 ]
 
+[tool.ty.src]
+exclude = ["tests/**"]
+
+[tool.mypy]
+exclude = ["tests/"]
+
+[tool.ruff]
+exclude = ["tests/"]
+
+[tool.basedpyright]
+include = ["src"]
+
+exclude = ["tests"]
+
 [tool.uv.sources]
 paperjson = { workspace = true }
 
 [dependency-groups]
 dev = [
     "paperjson",
+    "pytest>=8",
 ]
