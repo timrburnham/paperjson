@@ -6,6 +6,32 @@ from pathlib import Path
 from typing import Callable, Type, Union
 
 
+class _DeserializerRegistry:
+    """Registry for deserialization functions, keyed by target type.
+
+    Provides a singledispatch-style register decorator, but dispatches
+    on the target type rather than the value's runtime type.
+    """
+
+    def __init__(self):
+        self._map: dict[Type, Callable] = {}
+
+    def register(self, typ: Type) -> Callable:
+        """Decorator to register a deserializer for *typ*."""
+
+        def decorator(func: Callable) -> Callable:
+            self._map[typ] = func
+            return func
+
+        return decorator
+
+    def get(self, typ: Type, default=None):
+        return self._map.get(typ, default)
+
+    def __contains__(self, typ: Type) -> bool:
+        return typ in self._map
+
+
 @singledispatch
 def json_serialize(arg):
     """Default JSON serializer.
@@ -25,10 +51,17 @@ def _(arg: Path) -> str:
     return str(arg)
 
 
-_json_des: dict[Type, Callable] = {
-    datetime: lambda dt: datetime.fromisoformat(dt),
-    Path: lambda p: Path(p),
-}
+json_deserialize = _DeserializerRegistry()
+
+
+@json_deserialize.register(datetime)
+def _(value: str) -> datetime:
+    return datetime.fromisoformat(value)
+
+
+@json_deserialize.register(Path)
+def _(value: str) -> Path:
+    return Path(value)
 
 
 class JsonSerDes:
@@ -44,8 +77,9 @@ class JsonSerDes:
             target_type = self._get_primary_type(field.type)
 
             # Apply deserializer if we have one and value isn't already that type
-            if target_type in _json_des and not isinstance(value, target_type):
-                coerced = _json_des[target_type](value)
+            deserializer = json_deserialize.get(target_type)
+            if deserializer is not None and not isinstance(value, target_type):
+                coerced = deserializer(value)
                 object.__setattr__(self, field.name, coerced)
 
     @staticmethod
@@ -58,8 +92,8 @@ class JsonSerDes:
                     return arg
         return typ
 
-    @classmethod
-    def register_serializer(cls, typ: Type) -> Callable:
+    @staticmethod
+    def register_serializer(typ: Type) -> Callable:
         """Decorator to register a serialization function for a type.
 
         Delegates to singledispatch. Usage:
@@ -68,6 +102,17 @@ class JsonSerDes:
                 return str(p)
         """
         return json_serialize.register(typ)
+
+    @staticmethod
+    def register_deserializer(typ: Type) -> Callable:
+        """Decorator to register a deserialization function for a type.
+
+        Usage:
+            @JsonSerDes.register_deserializer(Path)
+            def _(v: str) -> Path:
+                return Path(v)
+        """
+        return json_deserialize.register(typ)
 
     def to_json(self, *args, **kwargs) -> str:
         return json.dumps(
