@@ -4,7 +4,14 @@ version = "0.1.0"
 description = "Paper-thin JSON serialization/deserialization for Python dataclasses"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "Tim Burnham", email = "timrburnham@gmail.com"},
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/timrburnham/paperjson"
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]
