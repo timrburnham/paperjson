@@ -9,11 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from dataclasses import dataclass
 
-from paperjson import JsonSerDes
+import paperjson
 
 
+@paperjson.serdes
 @dataclass
-class Address(JsonSerDes):
+class Address:
     line1: str
     line2: str
     city: str
@@ -21,8 +22,9 @@ class Address(JsonSerDes):
     zip: str
 
 
+@paperjson.serdes
 @dataclass
-class User(JsonSerDes):
+class User:
     name: str
     dob: datetime
     email: str
@@ -49,13 +51,16 @@ print(restored)
 
 ```python
 from decimal import Decimal
-from paperjson import JsonSerDes
 
-@JsonSerDes.register_serializer(Decimal)
+import paperjson
+
+
+@paperjson.register_serializer(Decimal)
 def _(val: Decimal) -> str:
     return str(val)
 
-@JsonSerDes.register_deserializer(Decimal)
+
+@paperjson.register_deserializer(Decimal)
 def _(val: str) -> Decimal:
     return Decimal(val)
 ```
