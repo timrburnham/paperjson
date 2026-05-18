@@ -1,4 +1,4 @@
-"""Serialization (singledispatch) and built-in serializers for paperjson."""
+"""Serialization singledispatch and built-in handlers for paperjson."""
 
 from datetime import datetime
 from functools import singledispatch
@@ -8,11 +8,10 @@ from typing import Callable, Type
 
 @singledispatch
 def json_serialize(arg):
-    """Default JSON serializer.
+    """Serialize *arg* for ``json.dumps(default=...)``.
 
-    Register type-specific handlers with
-    ``@paperjson.register_serializer(Type)`` or
-    ``@json_serialize.register(Type)``.
+    ``@serdes``-decorated classes call this internally during ``to_json()``.
+    Register handlers with ``@paperjson.register_serializer(Type)``.
     """
     raise TypeError(f"Object of type {type(arg)} is not JSON serializable")
 
@@ -29,6 +28,9 @@ def _(arg: Path) -> str:
 
 def register_serializer(typ: Type) -> Callable:
     """Decorator to register a serialization function for *typ*.
+
+    The function receives a value of *typ* and must return a JSON-compatible
+    Python object (``str``, ``int``, ``float``, ``list``, ``dict``, etc.).
 
     Usage::
 

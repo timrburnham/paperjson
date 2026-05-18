@@ -1,4 +1,4 @@
-"""Deserialization registry and built-in deserializers for paperjson."""
+"""Deserialization registry and built-in handlers for paperjson."""
 
 from datetime import datetime
 from pathlib import Path
@@ -6,17 +6,21 @@ from typing import Callable, Type
 
 
 class _DeserializerRegistry:
-    """Registry for deserialization functions, keyed by target type.
+    """Thin registry for type-conditional deserialization functions.
 
-    Provides a singledispatch-style register decorator, but dispatches
-    on the target type rather than the value's runtime type.
+    Works like :py:func:`functools.singledispatch` but dispatches on the
+    *target* type (what you want back) rather than the runtime type of the
+    argument (which is almost always ``str`` or ``dict``).
     """
 
     def __init__(self) -> None:
         self._map: dict[Type, Callable] = {}
 
     def register(self, typ: Type) -> Callable:
-        """Decorator to register a deserializer for *typ*."""
+        """Register *func* as the deserializer for *typ*.
+
+        Returns the decorator so it can be used with ``@register(typ)`` syntax.
+        """
 
         def decorator(func: Callable) -> Callable:
             self._map[typ] = func
@@ -46,6 +50,9 @@ def _(value: str) -> Path:
 
 def register_deserializer(typ: Type) -> Callable:
     """Decorator to register a deserialization function for *typ*.
+
+    The function receives a plain Python object (typically ``str``, ``list``,
+    or ``dict``) and must return an instance of *typ*.
 
     Usage::
 
