@@ -1,14 +1,30 @@
 import dataclasses
 import json
 from datetime import UTC, datetime
+from functools import singledispatch
 from pathlib import Path
-from typing import Any, Callable, Type, Union
+from typing import Callable, Type, Union
 
-# Module-level serializer/deserializer registries
-_json_ser: dict[Type, Callable] = {
-    datetime: lambda dt: dt.isoformat(),
-    Path: lambda p: str(p),
-}
+
+@singledispatch
+def json_serialize(arg):
+    """Default JSON serializer.
+
+    Register type-specific handlers with @json_serialize.register(Type).
+    """
+    raise TypeError(f"Object of type {type(arg)} is not JSON serializable")
+
+
+@json_serialize.register(datetime)
+def _(arg: datetime) -> str:
+    return arg.isoformat()
+
+
+@json_serialize.register(Path)
+def _(arg: Path) -> str:
+    return str(arg)
+
+
 _json_des: dict[Type, Callable] = {
     datetime: lambda dt: datetime.fromisoformat(dt),
     Path: lambda p: Path(p),
@@ -19,7 +35,7 @@ class JsonSerDes:
     """Mixin class for JSON serialization/deserialization."""
 
     def __post_init__(self):
-        for field in dataclasses.fields(self):
+        for field in dataclasses.fields(self):  # type: ignore
             value = getattr(self, field.name)
             if value is None:
                 continue
@@ -34,7 +50,7 @@ class JsonSerDes:
 
     @staticmethod
     def _get_primary_type(typ):
-        """Extract first non-None type from Optional[T] or Union[T, ...]."""
+        """Extract first not-None type from Optional[typ] or Union[typ, ...]."""
         origin = getattr(typ, "__origin__", None)
         if origin is Union:
             for arg in getattr(typ, "__args__", ()):
@@ -46,28 +62,17 @@ class JsonSerDes:
     def register_serializer(cls, typ: Type) -> Callable:
         """Decorator to register a serialization function for a type.
 
-        Usage:
+        Delegates to singledispatch. Usage:
             @JsonSerDes.register_serializer(Path)
-            def serialize_path(p: Path) -> str:
+            def _(p: Path) -> str:
                 return str(p)
         """
-
-        def decorator(func: Callable) -> Callable:
-            _json_ser[typ] = func
-            return func
-
-        return decorator
+        return json_serialize.register(typ)
 
     def to_json(self, *args, **kwargs) -> str:
-        def serialize(data: Any) -> Any:
-            for typ, func in reversed(_json_ser.items()):
-                if isinstance(data, typ):
-                    return func(data)
-            raise TypeError("Object of type %s is not JSON serializable" % type(data))
-
         return json.dumps(
-            dataclasses.asdict(self),
-            default=serialize,
+            dataclasses.asdict(self),  # type: ignore
+            default=json_serialize,
             ensure_ascii=False,
             *args,
             **kwargs,
@@ -80,15 +85,26 @@ class JsonSerDes:
 
 
 @dataclasses.dataclass
+class Address(JsonSerDes):
+    line1: str
+    line2: str | None
+    city: str
+    st: str
+    zip: str
+
+
+@dataclasses.dataclass
 class User(JsonSerDes):
     name: str
     dob: datetime
     email: str
     homedir: Path
+    mail: Address
 
 
 if __name__ == "__main__":
-    obj1 = User(name="", dob=datetime.now(UTC), email="", homedir=Path.home())
+    ad = Address("3824 Jarren Ct", None, "Chattanooga", "TN", "37415")
+    obj1 = User(name="", dob=datetime.now(UTC), email="", homedir=Path.home(), mail=ad)
     print(obj1)
     json1 = obj1.to_json()
     print(json1)
