@@ -14,21 +14,23 @@ def json_serialize(arg):
     Register handlers with ``@paperjson.register_serializer(Type)``.
     """
     s = str(arg)
+    typ = type(arg)
 
     # Test round-trip: can the value survive str() → constructor?
     # If yes, auto-register the str() handler so subsequent calls skip
     # this check entirely.
     try:
-        reconstructed = type(arg)(s)
+        reconstructed = typ(s)
         if reconstructed == arg:
-            json_serialize.register(type(arg))(lambda x: str(x))
+            json_serialize.register(typ, str)
             return s
     except Exception:
         pass
 
     raise TypeError(
-        f"Object of type {type(arg)} is not JSON serializable. "
-        f"Register a serializer with @register_serializer({type(arg).__name__})"
+        "Object of type %s is not JSON serializable. "
+        "Register a serializer with @paperjson.register_serializer(%s)"
+        % (typ, typ.__name__)
     )
 
 
