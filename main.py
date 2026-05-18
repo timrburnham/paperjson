@@ -137,7 +137,7 @@ class JsonSerDes:
 @dataclasses.dataclass
 class Address(JsonSerDes):
     line1: str
-    line2: str | None
+    line2: str
     city: str
     st: str
     zip: str
@@ -153,8 +153,17 @@ class User(JsonSerDes):
 
 
 if __name__ == "__main__":
-    ad = Address("3824 Jarren Ct", None, "Chattanooga", "TN", "37415")
-    obj1 = User(name="", dob=datetime.now(UTC), email="", homedir=Path.home(), mail=ad)
+    ad_dict = dict(
+        line1="3824 Jarren Ct",
+        line2="",
+        city="Chattanooga",
+        st="TN",
+        zip="37415",
+    )
+    ad1 = Address("3824 Jarren Ct", "", "Chattanooga", "TN", "37415")
+    ad2 = Address(**ad_dict)
+    print(ad1 == ad2)
+    obj1 = User(name="", dob=datetime.now(UTC), email="", homedir=Path.home(), mail=ad2)
     print(obj1)
     json1 = obj1.to_json()
     print(json1)
