@@ -10,14 +10,14 @@
 #   make                    Build for every detected CPython version
 #   make test               Run pytest across all detected Python versions
 #   make 3.10               Build with ``uv build --python 3.10``
-#   make python3.12         Build with ``uv build --python python3.12``
 #   make /usr/bin/python3   Build with that interpreter
 #   make list               Show detected CPython versions
 #   make clean              Remove dist/
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Installed CPython versions, e.g. "3.10 3.11 3.12 3.14"
-PYTHON_VERSIONS := $(shell uv python list --only-installed \
+PYTHON_VERSIONS := $(shell \
+    uv python list --only-installed \
 	| sed -n 's/^cpython-\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' \
 	| sort -u)
 
@@ -62,7 +62,7 @@ help:
 	@echo "Usage:"
 	@echo "  make              Build for all detected Python versions"
 	@echo "  make test         Run pytest across all detected Python versions"
-	@echo "  make <exe>        Build with that Python executable (e.g. 3.10, python3.12)"
+	@echo "  make <exe>        Build with that Python executable (e.g. 3.10 python3.12 /usr/bin/python3.14)"
 	@echo "  make list         List detected Python versions"
 	@echo "  make clean        Remove $(DIST_DIR)/"
 	@echo ""

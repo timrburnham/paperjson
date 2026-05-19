@@ -118,20 +118,18 @@ class SerdesBase:
     base class — the decorator’s methods will shadow the inherited ones.
     """
 
-    def to_json(self, *args: Any, **kwargs: Any) -> str:
+    def to_json(self, **kwargs: Any) -> str:
         return json.dumps(
             dataclasses.asdict(cast(Any, self)),
             default=json_serialize,
             ensure_ascii=False,
-            *args,
             **kwargs,
         )
 
     @classmethod
     def from_json(cls, data: str | bytes | bytearray):
         raw = json.loads(data)
-        coerced = _coerce_dict(cls, raw)
-        return cls(**coerced)
+        return cls(**_coerce_dict(cls, raw))
 
 
 # ---------------------------------------------------------------------------
