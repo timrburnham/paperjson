@@ -1,12 +1,12 @@
 # paperjson
 
-Paper-thin JSON serialization/deserialization for Python dataclasses.
+Paper-thin JSON serialization/deserialization for Python dataclasses. Easy to extend for custom classes.
 
 ## Usage
 
 There are two ways to add `to_json()` / `from_json()` to a dataclass:
 
-### 1. Inherit from `SerdesBase` (recommended)
+### 1A. Inherit from `SerdesBase`
 
 Inheriting from `SerdesBase` gives full **type-checker / LSP support** — your
 editor will know about `to_json()` and `from_json()`:
@@ -27,10 +27,12 @@ restored = User.from_json(user.to_json())
 print(restored == user)                  # True
 ```
 
-### 2. Use the `@serdes` decorator
+This is similar to Pydantic BaseModel. But! You might not wish to add a base to your class.
 
-The decorator injects the methods at runtime.  It works identically but type
-checkers can't see the injected methods:
+### 1B. Use the `@serdes` decorator
+
+Decorate any dataclass to inject the methods at runtime.  It works identically,
+but type checkers can't see the injected methods:
 
 ```python
 from dataclasses import dataclass
@@ -46,9 +48,9 @@ user = User(name="Alice", email="alice@example.com")
 print(user.to_json())                    # {"name": "Alice", "email": "alice@example.com"}
 ```
 
-You can also combine both — inherit from `SerdesBase` **and** use `@serdes`.
+You may choose both without conflict — inherit from `SerdesBase` and decorate with `@serdes`.
 
-### Type annotations with `SerdesProtocol`
+### 2. Type annotations with `SerdesProtocol`
 
 Use `SerdesProtocol` in function signatures to accept anything that has
 `to_json()` / `from_json()` — whether it inherits from `SerdesBase` or was
@@ -65,7 +67,25 @@ def load(cls: type[SerdesProtocol[Any]], data: str) -> Any:
     return cls.from_json(data)
 ```
 
-### Full worked example
+## 3. Custom type support
+
+```python
+from decimal import Decimal
+
+import paperjson
+
+
+@paperjson.register_serializer(Decimal)
+def _(val: Decimal) -> str:
+    return str(val)
+
+
+@paperjson.register_deserializer(Decimal)
+def _(val: str) -> Decimal:
+    return Decimal(val)
+```
+
+### 4. Worked example
 
 ```python
 from datetime import datetime, timezone
@@ -84,8 +104,9 @@ class Address(paperjson.SerdesBase):
     zip: str
 
 
+@paperjson.serdes
 @dataclass
-class User(paperjson.SerdesBase):
+class User():
     name: str
     dob: datetime
     email: str
@@ -102,26 +123,14 @@ obj = User(
 )
 
 json_str = obj.to_json()
-print(json_str)
-
 restored = User.from_json(json_str)
-print(restored)
 ```
 
-## Custom type support
+Output dataclasses are identical to those created:
 
 ```python
-from decimal import Decimal
-
-import paperjson
-
-
-@paperjson.register_serializer(Decimal)
-def _(val: Decimal) -> str:
-    return str(val)
-
-
-@paperjson.register_deserializer(Decimal)
-def _(val: str) -> Decimal:
-    return Decimal(val)
+>>> print(restored)
+User(name='Alice', dob=datetime.datetime(2026, 5, 19, 4, 50, 7, 485835, tzinfo=datetime.timezone.utc), email='alice@example.com', homedir=PosixPath('/home/tim'), mail=Address(line1='123 Main St', line2='', city='Springfield', st='IL', zip='62701'))
+>>> obj == restored
+True
 ```

@@ -18,18 +18,17 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.ty.src]
-exclude = ["tests/**"]
+exclude = ["test/**"]
 
 [tool.mypy]
-exclude = ["tests/"]
+exclude = ["test/"]
 
 [tool.ruff]
-exclude = ["tests/"]
+exclude = ["test/"]
 
 [tool.basedpyright]
 include = ["src"]
-
-exclude = ["tests"]
+exclude = ["test"]
 
 [tool.uv.sources]
 paperjson = { workspace = true }
