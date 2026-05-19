@@ -8,7 +8,7 @@ class TestPublicApiExports:
 
     def test_all_contains_expected(self):
         assert hasattr(paperjson, "__all__")
-        expected = {"serdes", "register_serializer", "register_deserializer"}
+        expected = {"SerdesBase", "SerdesProtocol", "register_serializer", "register_deserializer", "serdes"}
         actual = set(paperjson.__all__)
         assert actual == expected
 

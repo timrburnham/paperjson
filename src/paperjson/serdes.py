@@ -3,10 +3,12 @@
 import dataclasses
 import json
 from types import UnionType
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, Protocol, Type, TypeVar, Union, cast
 
 from paperjson.deserialize import json_deserialize
 from paperjson.serialize import json_serialize
+
+_T = TypeVar("_T")
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -69,24 +71,67 @@ def _coerce_dict(cls: Type, data: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Methods injected onto the decorated class
+# Public base class (type-safe alternative to the decorator)
 # ---------------------------------------------------------------------------
 
 
-def _to_json(self, *args, **kwargs) -> str:
-    return json.dumps(
-        dataclasses.asdict(self),
-        default=json_serialize,
-        ensure_ascii=False,
-        *args,
-        **kwargs,
-    )
+class SerdesProtocol(Protocol[_T]):
+    """Protocol describing the serdes interface — ``to_json()`` and ``from_json()``.
+
+    Use this for type-annotations when you want to accept any serdes-compatible
+    object (whether it inherits from :class:`SerdesBase` or was decorated with
+    ``@serdes``)::
+
+        from paperjson import SerdesProtocol
+
+        def dump(obj: SerdesProtocol[Any]) -> str:
+            return obj.to_json()
+
+        def load(cls: type[SerdesProtocol[_T]], data: str) -> _T:
+            return cls.from_json(data)
+    """
+
+    def to_json(self, *args: Any, **kwargs: Any) -> str: ...
+
+    @classmethod
+    def from_json(cls: type[_T], data: str | bytes | bytearray) -> _T: ...
 
 
-def _from_json(cls, data: str | bytes | bytearray):
-    raw = json.loads(data)
-    coerced = _coerce_dict(cls, raw)
-    return cls(**coerced)
+class SerdesBase:
+    """Base class that provides ``to_json()`` and ``from_json()``.
+
+    Inherit from this class (in addition to using ``@dataclass``) to get
+    full type-checker / LSP support for ``to_json()`` and ``from_json()``::
+
+        from dataclasses import dataclass
+        from paperjson import SerdesBase
+
+        @dataclass
+        class User(SerdesBase):
+            name: str
+
+        obj  = User(name="Alice")
+        json_str = obj.to_json()
+        obj2 = User.from_json(json_str)
+
+    You can also use the ``@paperjson.serdes`` decorator together with this
+    base class — the decorator’s methods will shadow the inherited ones.
+    """
+
+    def to_json(self, *args: Any, **kwargs: Any) -> str:
+        return json.dumps(
+            dataclasses.asdict(cast(Any, self)),
+            default=json_serialize,
+            ensure_ascii=False,
+            *args,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_json(cls, data: str | bytes | bytearray):
+        raw = json.loads(data)
+        coerced = _coerce_dict(cls, raw)
+        return cls(**coerced)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +166,7 @@ def serdes(cls=None, /, *, strict: bool = False) -> Callable:
         # Called with keyword arguments:  @serdes(strict=True)
         return lambda c: serdes(c, strict=strict)
 
-    cls.to_json = _to_json
-    cls.from_json = classmethod(_from_json)
+    cls.to_json = SerdesBase.to_json
+    cls.from_json = classmethod(SerdesBase.from_json.__func__)
 
     return cls

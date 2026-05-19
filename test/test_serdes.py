@@ -1,4 +1,4 @@
-"""Unit tests for paperjson.serdes — the ``@serdes`` decorator.
+"""Unit tests for paperjson.serdes — the ``@serdes`` decorator and ``SerdesBase``.
 
 Focuses on ``to_json()`` → ``from_json()`` roundtrip behaviour with
 JSON strings and Python dataclasses.
@@ -13,6 +13,7 @@ from typing import Any, Optional
 import pytest
 
 import paperjson
+from paperjson import SerdesBase, SerdesProtocol
 
 # ============================================================================
 # Basic roundtrip — primitive fields only
@@ -520,3 +521,300 @@ class TestErrorCases:
 
         obj = Simple.from_json('{"x": "not an int"}')
         assert obj.x == "not an int"  # no coercion/validation for str->int
+
+
+# ============================================================================
+# SerdesBase — the type-safe base class
+# ============================================================================
+
+
+class TestSerdesBaseBasic:
+    """Roundtrip via ``SerdesBase`` inheritance (no decorator)."""
+
+    def test_primitive_roundtrip(self):
+        @dataclass
+        class Point(SerdesBase):
+            x: int
+            y: int
+
+        p = Point(3, 4)
+        raw = p.to_json()
+        p2 = Point.from_json(raw)
+        assert p2 == p
+        assert json.loads(raw) == {"x": 3, "y": 4}
+
+    def test_mixed_primitives(self):
+        @dataclass
+        class Book(SerdesBase):
+            title: str
+            pages: int
+            price: float
+            in_stock: bool
+
+        b = Book("Dune", 412, 9.99, False)
+        b2 = Book.from_json(b.to_json())
+        assert b2 == b
+
+    def test_isinstance_of_base(self):
+        @dataclass
+        class Item(SerdesBase):
+            name: str
+
+        i = Item("pen")
+        assert isinstance(i, SerdesBase)
+        assert isinstance(i, Item)
+
+    def test_default_values(self):
+        @dataclass
+        class Config(SerdesBase):
+            host: str = "localhost"
+            port: int = 8080
+
+        c1 = Config()
+        c2 = Config.from_json(c1.to_json())
+        assert c2 == c1
+
+    def test_factory_defaults(self):
+        @dataclass
+        class Shelf(SerdesBase):
+            books: list[str] = field(default_factory=list)
+
+        s1 = Shelf(["Dune", "1984"])
+        s2 = Shelf.from_json(s1.to_json())
+        assert s2 == s1
+
+
+class TestSerdesBaseNested:
+    """Nested dataclasses via SerdesBase."""
+
+    def test_two_level_nesting(self):
+        @dataclass
+        class Address(SerdesBase):
+            street: str
+            city: str
+
+        @dataclass
+        class Person(SerdesBase):
+            name: str
+            address: Address
+
+        addr = Address("123 Main", "Springfield")
+        person = Person("Alice", addr)
+        person2 = Person.from_json(person.to_json())
+        assert person2 == person
+        assert isinstance(person2.address, Address)
+
+    def test_nested_from_json_dict(self):
+        @dataclass
+        class Address(SerdesBase):
+            street: str
+            city: str
+
+        @dataclass
+        class Person(SerdesBase):
+            name: str
+            address: Address
+
+        raw = '{"name": "Bob", "address": {"street": "456 Oak", "city": "Shelbyville"}}'
+        person = Person.from_json(raw)
+        assert isinstance(person.address, Address)
+        assert person.address.street == "456 Oak"
+
+
+class TestSerdesBaseOptional:
+    """Optional / None fields with SerdesBase."""
+
+    def test_optional_none_roundtrip(self):
+        @dataclass
+        class Profile(SerdesBase):
+            name: str
+            nickname: Optional[str] = None
+
+        p = Profile("Alice")
+        p2 = Profile.from_json(p.to_json())
+        assert p2 == p
+        assert p2.nickname is None
+
+    def test_null_in_json(self):
+        @dataclass
+        class Profile(SerdesBase):
+            name: str
+            bio: Optional[str] = None
+
+        raw = '{"name": "Carol", "bio": null}'
+        p = Profile.from_json(raw)
+        assert p.name == "Carol"
+        assert p.bio is None
+
+
+class TestSerdesBaseSpecialTypes:
+    """datetime / Path roundtrip via SerdesBase."""
+
+    def test_datetime_roundtrip(self):
+        @dataclass
+        class LogEntry(SerdesBase):
+            message: str
+            timestamp: datetime
+
+        entry = LogEntry("startup", datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
+        entry2 = LogEntry.from_json(entry.to_json())
+        assert entry2 == entry
+
+    def test_path_roundtrip(self):
+        @dataclass
+        class FsNode(SerdesBase):
+            name: str
+            path: Path
+
+        node = FsNode("config", Path("/etc/app.yaml"))
+        node2 = FsNode.from_json(node.to_json())
+        assert node2 == node
+        assert isinstance(node2.path, Path)
+
+
+class TestSerdesBaseToJsonArgs:
+    """Extra kwargs to to_json() work with SerdesBase."""
+
+    def test_indent(self):
+        @dataclass
+        class Entry(SerdesBase):
+            title: str
+
+        e = Entry("Hello")
+        raw = e.to_json(indent=2)
+        assert "\n" in raw
+
+    def test_sort_keys(self):
+        @dataclass
+        class Multi(SerdesBase):
+            b: int
+            a: int
+            c: int
+
+        m = Multi(1, 2, 3)
+        raw = m.to_json(sort_keys=True)
+        keys = list(json.loads(raw).keys())
+        assert keys == sorted(keys)
+
+
+class TestSerdesBaseBytesInput:
+    """from_json accepts bytes and bytearray."""
+
+    def test_from_bytes(self):
+        @dataclass
+        class Item(SerdesBase):
+            name: str
+
+        raw = b'{"name": "pen"}'
+        i = Item.from_json(raw)
+        assert i.name == "pen"
+
+    def test_from_bytearray(self):
+        @dataclass
+        class Item(SerdesBase):
+            name: str
+
+        raw = bytearray(b'{"name": "pencil"}')
+        i = Item.from_json(raw)
+        assert i.name == "pencil"
+
+
+# ============================================================================
+# SerdesBase + @serdes decorator together
+# ============================================================================
+
+
+class TestSerdesBaseWithDecorator:
+    """Using both ``SerdesBase`` inheritance and ``@serdes`` together."""
+
+    def test_roundtrip(self):
+        @paperjson.serdes
+        @dataclass
+        class Product(SerdesBase):
+            name: str
+            price: float
+
+        p = Product("Widget", 19.99)
+        p2 = Product.from_json(p.to_json())
+        assert p2 == p
+
+    def test_methods_still_accessible(self):
+        @paperjson.serdes
+        @dataclass
+        class Item(SerdesBase):
+            sku: str
+
+        i = Item("ABC-123")
+        assert hasattr(i, "to_json")
+        assert callable(i.to_json)
+        assert hasattr(Item, "from_json")
+        assert callable(Item.from_json)
+
+    def test_isinstance_of_both(self):
+        @paperjson.serdes
+        @dataclass
+        class Widget(SerdesBase):
+            name: str
+
+        w = Widget("gizmo")
+        assert isinstance(w, SerdesBase)
+        assert isinstance(w, Widget)
+
+
+# ============================================================================
+# SerdesProtocol — the public Protocol type
+# ============================================================================
+
+
+class TestSerdesProtocol:
+    """The ``SerdesProtocol`` type is importable and usable for annotations."""
+
+    def test_importable_from_package(self):
+        from paperjson import SerdesProtocol  # noqa: F811
+
+        assert SerdesProtocol is not None
+
+    def test_importable_from_serdes_module(self):
+        from paperjson.serdes import SerdesProtocol
+
+        assert SerdesProtocol is not None
+
+    def test_serdes_base_instance_matches(self):
+        """An instance of a SerdesBase subclass should have to_json/from_json."""
+
+        @dataclass
+        class Item(SerdesBase):
+            name: str
+
+        i = Item("test")
+        assert hasattr(i, "to_json")
+        assert hasattr(type(i), "from_json")
+
+    def test_decorated_instance_matches(self):
+        """An instance of a @serdes-decorated class should have to_json/from_json."""
+
+        @paperjson.serdes
+        @dataclass
+        class Item:
+            name: str
+
+        i = Item("test")
+        assert hasattr(i, "to_json")
+        assert hasattr(type(i), "from_json")
+
+    def test_structural_compatibility(self):
+        """SerdesBase and @serdes instances expose the same protocol."""
+
+        @dataclass
+        class A(SerdesBase):
+            x: int
+
+        @paperjson.serdes
+        @dataclass
+        class B:
+            x: int
+
+        a = A(1)
+        b = B(1)
+        # Both have the same shape
+        assert a.to_json() == b.to_json()
