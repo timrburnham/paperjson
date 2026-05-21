@@ -75,19 +75,19 @@ def _coerce_dict(cls: Type, data: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-class SerdesProtocol(Protocol[_T]):
+class PaperJsonProtocol(Protocol[_T]):
     """Protocol describing the serdes interface — ``to_json()`` and ``from_json()``.
 
     Use this for type-annotations when you want to accept any serdes-compatible
-    object (whether it inherits from :class:`SerdesBase` or was decorated with
+    object (whether it inherits from :class:`PaperJsonBase` or was decorated with
     ``@serdes``)::
 
-        from paperjson import SerdesProtocol
+        from paperjson import PaperJsonProtocol
 
-        def dump(obj: SerdesProtocol[Any]) -> str:
+        def dump(obj: PaperJsonProtocol[Any]) -> str:
             return obj.to_json()
 
-        def load(cls: type[SerdesProtocol[_T]], data: str) -> _T:
+        def load(cls: type[PaperJsonProtocol[_T]], data: str) -> _T:
             return cls.from_json(data)
     """
 
@@ -97,25 +97,22 @@ class SerdesProtocol(Protocol[_T]):
     def from_json(cls: type[_T], data: str | bytes | bytearray) -> _T: ...
 
 
-class SerdesBase:
+class PaperJsonBase:
     """Base class that provides ``to_json()`` and ``from_json()``.
 
     Inherit from this class (in addition to using ``@dataclass``) to get
     full type-checker / LSP support for ``to_json()`` and ``from_json()``::
 
         from dataclasses import dataclass
-        from paperjson import SerdesBase
+        from paperjson import PaperJsonBase
 
         @dataclass
-        class User(SerdesBase):
+        class User(PaperJsonBase):
             name: str
 
         obj  = User(name="Alice")
         json_str = obj.to_json()
         obj2 = User.from_json(json_str)
-
-    You can also use the ``@paperjson.serdes`` decorator together with this
-    base class — the decorator’s methods will shadow the inherited ones.
     """
 
     def to_json(self, **kwargs: Any) -> str:
@@ -164,7 +161,7 @@ def serdes(cls=None, /, *, strict: bool = False) -> Callable:
         # Called with keyword arguments:  @serdes(strict=True)
         return lambda c: serdes(c, strict=strict)
 
-    cls.to_json = SerdesBase.to_json
-    cls.from_json = classmethod(SerdesBase.from_json.__func__)
+    cls.to_json = PaperJsonBase.to_json
+    cls.from_json = classmethod(PaperJsonBase.from_json.__func__)
 
     return cls

@@ -1,6 +1,0 @@
-"""Type stub for paperjson.serialize."""
-
-from typing import Any, Callable, Type
-
-def json_serialize(arg: Any, /) -> Any: ...
-def register_serializer(typ: Type) -> Callable[[Callable], Callable]: ...

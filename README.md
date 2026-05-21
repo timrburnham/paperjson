@@ -1,6 +1,7 @@
 # paperjson
 
-Paper-thin JSON serialization/deserialization for Python dataclasses. Easy to extend for custom classes.
+Paper-thin JSON serialization/deserialization for Python dataclasses.
+Easy to extend for custom classes.
 
 ## Overview
 
@@ -11,9 +12,9 @@ or any other non-JSON-native type are automatically handled.
 **Automatic stringification**: When the serializer encounters a type it doesn't
 explicitly know about, it calls `str()` on the value and attempts a round-trip
 test — it calls `Type(str_value)` and checks whether the result equals the
-original.  If the round-trip succeeds, `str()` is auto-registered for that type,
-so subsequent calls skip the check entirely.  If the round-trip fails, a
-`TypeError` is raised telling you to register a custom serializer.
+original. If the round-trip succeeds, `str()` is auto-registered for that type,
+so subsequent calls skip the check. If the round-trip fails, a `TypeError` is
+raised telling you to register a custom serializer.
 
 You can always override the fallback by registering explicit serializers and
 deserializers for your own types (see [Custom type support](#3-custom-type-support)).
@@ -22,17 +23,17 @@ deserializers for your own types (see [Custom type support](#3-custom-type-suppo
 
 There are two ways to add `to_json()` / `from_json()` to a dataclass:
 
-### 1A. Inherit from `SerdesBase`
+### 1A. Inherit from `PaperJsonBase`
 
-Inheriting from `SerdesBase` gives full **type-checker / LSP support** — your
-editor will know about `to_json()` and `from_json()`:
+Inheriting from `PaperJsonBase` gives full **type-checker / LSP support** — your
+editor will suggest `to_json()` and `from_json()`:
 
 ```python
 from dataclasses import dataclass
 import paperjson
 
 @dataclass
-class User(paperjson.SerdesBase):
+class User(paperjson.PaperJsonBase):
     name: str
     email: str
 
@@ -50,7 +51,7 @@ This is similar to Pydantic BaseModel. But! You might not wish to add a base to 
 ### 1B. Use the `@serdes` decorator
 
 Decorate any dataclass to inject the methods at runtime.  It works identically,
-but type checkers can't see the injected methods:
+but type checkers can't see to_json() / from_json():
 
 ```python
 from dataclasses import dataclass
@@ -63,32 +64,31 @@ class User:
     email: str
 
 user = User(name="Alice", email="alice@example.com")
-print(user.to_json())
+print(user.to_json())  # type: ignore
 # {"name": "Alice", "email": "alice@example.com"}
 ```
 
-### 2. Type annotations with `SerdesProtocol`
+### 2. Type annotations with `PaperJsonProtocol`
 
-Use `SerdesProtocol` in function signatures to accept anything that has
-`to_json()` / `from_json()` — whether it inherits from `SerdesBase` or was
-decorated:
+Use `PaperProtocol` in function signatures to accept anything that has
+`to_json()` / `from_json()` — whether it inherits from `PaperJsonBase`
+or was decorated:
 
 ```python
 from typing import Any
 import paperjson
 
-def dump(obj: paperjson.SerdesProtocol[Any]) -> str:
+def dump(obj: paperjson.PaperJsonProtocol[Any]) -> str:
     return obj.to_json(indent=2)
 
-def load(cls: type[paperjson.SerdesProtocol[Any]], data: str) -> Any:
+def load(cls: type[paperjson.PaperJsonProtocol[Any]], data: str) -> Any:
     return cls.from_json(data)
 ```
 
 ## 3. Custom type support
 
-Register serializers and deserializers for any type that the automatic
-stringification can't handle — or when you need explicit control over the
-JSON representation.
+Register serializers and deserializers for any type that stringification can't
+handle, or when you need explicit control over the JSON representation.
 
 ```python
 from decimal import Decimal
@@ -107,7 +107,7 @@ def _(val: str) -> Decimal:
 ```
 
 > **Note**: For a type like `Decimal`, the automatic stringification would
-> actually succeed (`str(d)` and `Decimal(str(d))` round-trip correctly), but
+> actually succeed (`d == Decimal(str(d)) == True`), but
 > registering explicitly is clearer.
 
 ### 4. Worked example
@@ -121,7 +121,7 @@ import paperjson
 
 
 @dataclass
-class Address(paperjson.SerdesBase):
+class Address(paperjson.PaperJsonBase):
     line1: str
     line2: str
     city: str

@@ -1,4 +1,4 @@
-"""Unit tests for paperjson.serdes — the ``@serdes`` decorator and ``SerdesBase``.
+"""Unit tests for paperjson.serdes — the ``@serdes`` decorator and ``PaperJsonBase``.
 
 Focuses on ``to_json()`` → ``from_json()`` roundtrip behaviour with
 JSON strings and Python dataclasses.
@@ -13,7 +13,7 @@ from typing import Any, Optional
 import pytest
 
 import paperjson
-from paperjson import SerdesBase, SerdesProtocol
+from paperjson import PaperJsonBase, PaperJsonProtocol
 
 # ============================================================================
 # Basic roundtrip — primitive fields only
@@ -524,16 +524,16 @@ class TestErrorCases:
 
 
 # ============================================================================
-# SerdesBase — the type-safe base class
+# PaperJsonBase — the type-safe base class
 # ============================================================================
 
 
-class TestSerdesBaseBasic:
-    """Roundtrip via ``SerdesBase`` inheritance (no decorator)."""
+class TestPaperJsonBaseBasic:
+    """Roundtrip via ``PaperJsonBase`` inheritance (no decorator)."""
 
     def test_primitive_roundtrip(self):
         @dataclass
-        class Point(SerdesBase):
+        class Point(PaperJsonBase):
             x: int
             y: int
 
@@ -545,7 +545,7 @@ class TestSerdesBaseBasic:
 
     def test_mixed_primitives(self):
         @dataclass
-        class Book(SerdesBase):
+        class Book(PaperJsonBase):
             title: str
             pages: int
             price: float
@@ -557,16 +557,16 @@ class TestSerdesBaseBasic:
 
     def test_isinstance_of_base(self):
         @dataclass
-        class Item(SerdesBase):
+        class Item(PaperJsonBase):
             name: str
 
         i = Item("pen")
-        assert isinstance(i, SerdesBase)
+        assert isinstance(i, PaperJsonBase)
         assert isinstance(i, Item)
 
     def test_default_values(self):
         @dataclass
-        class Config(SerdesBase):
+        class Config(PaperJsonBase):
             host: str = "localhost"
             port: int = 8080
 
@@ -576,7 +576,7 @@ class TestSerdesBaseBasic:
 
     def test_factory_defaults(self):
         @dataclass
-        class Shelf(SerdesBase):
+        class Shelf(PaperJsonBase):
             books: list[str] = field(default_factory=list)
 
         s1 = Shelf(["Dune", "1984"])
@@ -584,17 +584,17 @@ class TestSerdesBaseBasic:
         assert s2 == s1
 
 
-class TestSerdesBaseNested:
-    """Nested dataclasses via SerdesBase."""
+class TestPaperJsonBaseNested:
+    """Nested dataclasses via PaperJsonBase."""
 
     def test_two_level_nesting(self):
         @dataclass
-        class Address(SerdesBase):
+        class Address(PaperJsonBase):
             street: str
             city: str
 
         @dataclass
-        class Person(SerdesBase):
+        class Person(PaperJsonBase):
             name: str
             address: Address
 
@@ -606,12 +606,12 @@ class TestSerdesBaseNested:
 
     def test_nested_from_json_dict(self):
         @dataclass
-        class Address(SerdesBase):
+        class Address(PaperJsonBase):
             street: str
             city: str
 
         @dataclass
-        class Person(SerdesBase):
+        class Person(PaperJsonBase):
             name: str
             address: Address
 
@@ -621,12 +621,12 @@ class TestSerdesBaseNested:
         assert person.address.street == "456 Oak"
 
 
-class TestSerdesBaseOptional:
-    """Optional / None fields with SerdesBase."""
+class TestPaperJsonBaseOptional:
+    """Optional / None fields with PaperJsonBase."""
 
     def test_optional_none_roundtrip(self):
         @dataclass
-        class Profile(SerdesBase):
+        class Profile(PaperJsonBase):
             name: str
             nickname: Optional[str] = None
 
@@ -637,7 +637,7 @@ class TestSerdesBaseOptional:
 
     def test_null_in_json(self):
         @dataclass
-        class Profile(SerdesBase):
+        class Profile(PaperJsonBase):
             name: str
             bio: Optional[str] = None
 
@@ -647,12 +647,12 @@ class TestSerdesBaseOptional:
         assert p.bio is None
 
 
-class TestSerdesBaseSpecialTypes:
-    """datetime / Path roundtrip via SerdesBase."""
+class TestPaperJsonBaseSpecialTypes:
+    """datetime / Path roundtrip via PaperJsonBase."""
 
     def test_datetime_roundtrip(self):
         @dataclass
-        class LogEntry(SerdesBase):
+        class LogEntry(PaperJsonBase):
             message: str
             timestamp: datetime
 
@@ -662,7 +662,7 @@ class TestSerdesBaseSpecialTypes:
 
     def test_path_roundtrip(self):
         @dataclass
-        class FsNode(SerdesBase):
+        class FsNode(PaperJsonBase):
             name: str
             path: Path
 
@@ -672,12 +672,12 @@ class TestSerdesBaseSpecialTypes:
         assert isinstance(node2.path, Path)
 
 
-class TestSerdesBaseToJsonArgs:
-    """Extra kwargs to to_json() work with SerdesBase."""
+class TestPaperJsonBaseToJsonArgs:
+    """Extra kwargs to to_json() work with PaperJsonBase."""
 
     def test_indent(self):
         @dataclass
-        class Entry(SerdesBase):
+        class Entry(PaperJsonBase):
             title: str
 
         e = Entry("Hello")
@@ -686,7 +686,7 @@ class TestSerdesBaseToJsonArgs:
 
     def test_sort_keys(self):
         @dataclass
-        class Multi(SerdesBase):
+        class Multi(PaperJsonBase):
             b: int
             a: int
             c: int
@@ -697,12 +697,12 @@ class TestSerdesBaseToJsonArgs:
         assert keys == sorted(keys)
 
 
-class TestSerdesBaseBytesInput:
+class TestPaperJsonBaseBytesInput:
     """from_json accepts bytes and bytearray."""
 
     def test_from_bytes(self):
         @dataclass
-        class Item(SerdesBase):
+        class Item(PaperJsonBase):
             name: str
 
         raw = b'{"name": "pen"}'
@@ -711,7 +711,7 @@ class TestSerdesBaseBytesInput:
 
     def test_from_bytearray(self):
         @dataclass
-        class Item(SerdesBase):
+        class Item(PaperJsonBase):
             name: str
 
         raw = bytearray(b'{"name": "pencil"}')
@@ -720,17 +720,17 @@ class TestSerdesBaseBytesInput:
 
 
 # ============================================================================
-# SerdesBase + @serdes decorator together
+# PaperJsonBase + @serdes decorator together
 # ============================================================================
 
 
-class TestSerdesBaseWithDecorator:
-    """Using both ``SerdesBase`` inheritance and ``@serdes`` together."""
+class TestPaperJsonBaseWithDecorator:
+    """Using both ``PaperJsonBase`` inheritance and ``@serdes`` together."""
 
     def test_roundtrip(self):
         @paperjson.serdes
         @dataclass
-        class Product(SerdesBase):
+        class Product(PaperJsonBase):
             name: str
             price: float
 
@@ -741,7 +741,7 @@ class TestSerdesBaseWithDecorator:
     def test_methods_still_accessible(self):
         @paperjson.serdes
         @dataclass
-        class Item(SerdesBase):
+        class Item(PaperJsonBase):
             sku: str
 
         i = Item("ABC-123")
@@ -753,37 +753,37 @@ class TestSerdesBaseWithDecorator:
     def test_isinstance_of_both(self):
         @paperjson.serdes
         @dataclass
-        class Widget(SerdesBase):
+        class Widget(PaperJsonBase):
             name: str
 
         w = Widget("gizmo")
-        assert isinstance(w, SerdesBase)
+        assert isinstance(w, PaperJsonBase)
         assert isinstance(w, Widget)
 
 
 # ============================================================================
-# SerdesProtocol — the public Protocol type
+# PaperJsonProtocol — the public Protocol type
 # ============================================================================
 
 
-class TestSerdesProtocol:
-    """The ``SerdesProtocol`` type is importable and usable for annotations."""
+class TestPaperJsonProtocol:
+    """The ``PaperJsonProtocol`` type is importable and usable for annotations."""
 
     def test_importable_from_package(self):
-        from paperjson import SerdesProtocol  # noqa: F811
+        from paperjson import PaperJsonProtocol  # noqa: F811
 
-        assert SerdesProtocol is not None
+        assert PaperJsonProtocol is not None
 
     def test_importable_from_serdes_module(self):
-        from paperjson.serdes import SerdesProtocol
+        from paperjson.serdes import PaperJsonProtocol
 
-        assert SerdesProtocol is not None
+        assert PaperJsonProtocol is not None
 
     def test_serdes_base_instance_matches(self):
-        """An instance of a SerdesBase subclass should have to_json/from_json."""
+        """An instance of a PaperJsonBase subclass should have to_json/from_json."""
 
         @dataclass
-        class Item(SerdesBase):
+        class Item(PaperJsonBase):
             name: str
 
         i = Item("test")
@@ -803,10 +803,10 @@ class TestSerdesProtocol:
         assert hasattr(type(i), "from_json")
 
     def test_structural_compatibility(self):
-        """SerdesBase and @serdes instances expose the same protocol."""
+        """PaperJsonBase and @serdes instances expose the same protocol."""
 
         @dataclass
-        class A(SerdesBase):
+        class A(PaperJsonBase):
             x: int
 
         @paperjson.serdes
